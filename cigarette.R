@@ -6,6 +6,7 @@
 ################################################################################
 # 0. Load dependencies
 library(dplyr)
+library(ggplot2)
 ################################################################################
 # 1. Load data
 dir <- "J:/Projects/Pharmaceutical Opioid Cohort/xPhillipH/ndarc-point-cleaning/0_data/processed/core.csv"
@@ -16,20 +17,10 @@ df <- read.csv(dir)
 smokers <- df %>% 
   select(participant_id, wave, cig_12m)
 
-bs_smokers <- subset(smokers, wave == "Baseline")
-y1_smokers <- subset(smokers, wave == "Year1")
-y2_smokers <- subset(smokers, wave == "Year2")
-y3_smokers <- subset(smokers, wave == "Year3")
-y4_smokers <- subset(smokers, wave == "Year4")
-y5_smokers <- subset(smokers, wave == "Year5")
-
-sum(bs_smokers$cig_12m == "Yes", na.rm = T)
-sum(y1_smokers$cig_12m == "Yes", na.rm = T)
-sum(y2_smokers$cig_12m == "Yes", na.rm = T)
-sum(y3_smokers$cig_12m == "Yes", na.rm = T)
-sum(y4_smokers$cig_12m == "Yes", na.rm = T)
-sum(y5_smokers$cig_12m == "Yes", na.rm = T)
-
+for (i in 0:5){
+  tmp <- subset(smokers, wave== i)
+  cat("\nWave: ", i, sum(tmp$cig_12m == "Yes", na.rm=T))
+}
 
 ################################################################################
 # 2. Create smoker flag
@@ -52,7 +43,7 @@ for (i in 1:length(tmp$participant_id)){
 }
 
 keep <- unique(keep) # 323 participants who stay full term 5 years
-ft_smokers <- subset(smokers, participant_id %in% keep)
+ft_smokers <- subset(df, participant_id %in% keep)
 ################################################################################
 # 3. Find smokers who quit at each interval 
 
@@ -66,25 +57,47 @@ quit_detector <- function(ft_smokers, year){
   
   for (participant in participants){
     tmp <- subset(ft_smokers, participant_id == participant)
-    smoking <- tmp[,3]
-    status <- unique(smoking[(year+1):6])
     
-    if ( length(status) < 2){
-      if (status == "No"){
-        ft_smokers$quit[ft_smokers$participant_id == participant] <- "Yes"}
-    }}
+    smoking <- tmp[["cig_12m"]]
+    status1 <- unique(smoking[1:year])
+    status2 <- unique(smoking[(year+1):6])
+    
+    if (length(status1) < 2){
+      if (length(status2) <2){
+        if (status1 == "Yes" & status2 == "No"){
+          ft_smokers$quit[ft_smokers$participant_id == participant] <- "Yes"}
+    }}}
+  
   ft_smokers$quit[ft_smokers$quit == 0] <- "No"
   ft_smokers$quit <- as.factor(ft_smokers$quit)
 return(ft_smokers)
 }
 
 # People who quit at Year1
-y1_quitters <- quit_detector(ft_smokers, year=1)
+quitters <- quit_detector(ft_smokers, year=1)
+candidates <- subset(quitters, quit == "Yes")
+num_cand <- unique(candidates$participant_id)
 
-candidates <- unique(y1_quitters$participant_id) #322 people quit smoking at t1
 ################################################################################
 # 4. EDA
+candidates$wave <- as.numeric(candidates$wave)
+ggplot(candidates, aes(x=wave, y=bpi_pscore)) +
+ geom_point() + geom_smooth(method ='lm')
 
+ggplot(candidates, aes(x=wave, y=bpi_interference)) +
+  geom_point() + geom_smooth(method="lm")
+
+ggplot(candidates, aes(x=wave, y=sf12_mcs)) +
+  geom_point() + geom_smooth(method="lm")
+
+ggplot(candidates, aes(x=wave, y=sf12_pcs)) +
+  geom_point() + geom_smooth(method="lm")
+
+ggplot(candidates, aes(x=wave, y=pseq_score)) +
+  geom_point() + geom_smooth(method="lm")
+
+ggplot(candidates, aes(x=wave, y=slp9)) +
+  geom_point() + geom_smooth(method="lm")
 ################################################################################
 # 5. Analysis
 
